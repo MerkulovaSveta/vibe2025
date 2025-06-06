@@ -85,3 +85,4 @@ async function handleRequest(req, res) {
 // Create and start server
 const server = http.createServer(handleRequest);
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+

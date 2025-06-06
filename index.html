@@ -25,7 +25,10 @@
             width: 5%;
         }
         #todoList th:nth-child(2) {
-            width: 90%;
+            width: 80%;
+        }
+        #todoList th:nth-child(3) {
+            width: 15%;
         }
         .add-form {
             margin-top: 20px;
@@ -40,6 +43,18 @@
             padding: 8px;
             width: 20%;
         }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .action-buttons button {
+            padding: 4px 8px;
+        }
+        .edit-input {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
@@ -51,11 +66,11 @@
         <tr>
             <th>Number</th>
             <th>Text</th>
-            <th>Action</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody id="listBody">
-        {{rows}}
+        <!-- Items will be rendered here -->
     </tbody>
 </table>
 
@@ -76,10 +91,31 @@
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${item.text}</td>
-                <td><button onclick="removeItem(${index})">Remove</button></td>
+                <td class="item-text">${item.text}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="edit-btn" data-id="${item.id}">Edit</button>
+                        <button class="delete-btn" data-id="${item.id}">×</button>
+                    </div>
+                </td>
             `;
             listBody.appendChild(row);
+        });
+
+        // Add event listeners to all delete buttons
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = parseInt(this.getAttribute('data-id'));
+                removeItem(itemId);
+            });
+        });
+
+        // Add event listeners to all edit buttons
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = parseInt(this.getAttribute('data-id'));
+                enableEdit(itemId);
+            });
         });
     }
 
@@ -94,10 +130,46 @@
         }
     }
 
-    function removeItem(index) {
-        items.splice(index, 1);
+    function removeItem(id) {
+        items = items.filter(item => item.id !== id);
         renderList();
     }
+
+    function enableEdit(id) {
+        const item = items.find(item => item.id === id);
+        if (!item) return;
+
+        const rows = document.querySelectorAll('#listBody tr');
+        rows.forEach(row => {
+            const rowId = parseInt(row.querySelector('.edit-btn').getAttribute('data-id'));
+            if (rowId === id) {
+                const textCell = row.querySelector('.item-text');
+                textCell.innerHTML = `
+                    <input type="text" class="edit-input" value="${item.text}">
+                    <button class="save-btn" data-id="${id}">Save</button>
+                `;
+
+                const saveBtn = textCell.querySelector('.save-btn');
+                saveBtn.addEventListener('click', function() {
+                    const newText = textCell.querySelector('.edit-input').value.trim();
+                    if (newText) {
+                        updateItem(id, newText);
+                    }
+                });
+            }
+        });
+    }
+
+    function updateItem(id, newText) {
+        const item = items.find(item => item.id === id);
+        if (item) {
+            item.text = newText;
+            renderList();
+        }
+    }
+
+    // Initial render
+    document.addEventListener('DOMContentLoaded', renderList);
 </script>
 
 </body>
