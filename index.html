@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List</title>
+    <title>To-Do List with Auth</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .auth-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 50px;
+        }
+        .todo-container {
+            display: none;
+            max-width: 800px;
+            margin: 0 auto;
         }
         #todoList {
             border-collapse: collapse;
-            width: 70%;
-            margin: 0 auto;
+            width: 100%;
+            margin: 20px 0;
         }
         #todoList th, #todoList td {
             border: 1px solid #ddd;
@@ -21,69 +36,177 @@
         #todoList th {
             background-color: #f0f0f0;
         }
-        #todoList th:first-child, #todoList th:last-child {
-            width: 5%;
-        }
-        #todoList th:nth-child(2) {
-            width: 80%;
-        }
-        #todoList th:nth-child(3) {
-            width: 15%;
+        .action-buttons {
+            display: flex;
+            gap: 5px;
         }
         .add-form {
-            margin-top: 20px;
-            width: 70%;
-            margin: 20px auto;
+            margin: 20px 0;
         }
         .add-form input[type="text"] {
             padding: 8px;
             width: 70%;
         }
         .add-form button {
-            padding: 8px;
-            width: 20%;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-        }
-        .action-buttons button {
-            padding: 4px 8px;
+            padding: 8px 15px;
         }
         .edit-input {
             width: 100%;
             padding: 5px;
             box-sizing: border-box;
         }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+        }
+        .user-info {
+            float: right;
+        }
     </style>
 </head>
 <body>
 
-<h2 style="text-align: center;">To-Do List</h2>
+<div id="authContainer" class="auth-container">
+    <h2>Login / Register</h2>
+    <div>
+        <input type="text" id="username" placeholder="Username" required><br><br>
+        <input type="password" id="password" placeholder="Password" required><br><br>
+        <button onclick="login()">Login</button>
+        <button onclick="register()">Register</button>
+    </div>
+    <div id="authError" class="error-message"></div>
+</div>
 
-<table id="todoList">
-    <thead>
-        <tr>
-            <th>Number</th>
-            <th>Text</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="listBody">
-        <!-- Items will be rendered here -->
-    </tbody>
-</table>
+<div id="todoContainer" class="todo-container">
+    <div class="user-info">
+        Welcome, <span id="currentUser"></span> | 
+        <button onclick="logout()">Logout</button>
+    </div>
+    <h2>Your To-Do List</h2>
+    
+    <table id="todoList">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Task</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="listBody"></tbody>
+    </table>
 
-<div class="add-form">
-    <input type="text" id="newItem" placeholder="Enter new item">
-    <button onclick="addItem()">Add</button>
+    <div class="add-form">
+        <input type="text" id="newItem" placeholder="Enter new task">
+        <button onclick="addItem()">Add Task</button>
+    </div>
 </div>
 
 <script>
-    let items = [];
-    let nextId = 1;
+    let currentUserId = null;
 
-    function renderList() {
+    // Check if user is already logged in
+    checkSession();
+
+    async function checkSession() {
+        try {
+            const response = await fetch('/check-auth');
+            const data = await response.json();
+            if (data.loggedIn) {
+                currentUserId = data.userId;
+                document.getElementById('currentUser').textContent = data.username;
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('todoContainer').style.display = 'block';
+                loadItems();
+            }
+        } catch (error) {
+            console.error('Session check error:', error);
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                currentUserId = data.userId;
+                document.getElementById('currentUser').textContent = username;
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('todoContainer').style.display = 'block';
+                document.getElementById('authError').textContent = '';
+                loadItems();
+            } else {
+                document.getElementById('authError').textContent = data.message;
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            document.getElementById('authError').textContent = 'Login failed';
+        }
+    }
+
+    async function register() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        
+        try {
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('authError').textContent = 'Registration successful! Please login.';
+                document.getElementById('authError').style.color = 'green';
+            } else {
+                document.getElementById('authError').textContent = data.message;
+                document.getElementById('authError').style.color = 'red';
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            document.getElementById('authError').textContent = 'Registration failed';
+        }
+    }
+
+    async function logout() {
+        try {
+            await fetch('/logout', { method: 'POST' });
+            currentUserId = null;
+            document.getElementById('authContainer').style.display = 'block';
+            document.getElementById('todoContainer').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('authError').textContent = '';
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+
+    async function loadItems() {
+        try {
+            const response = await fetch('/items');
+            const items = await response.json();
+            renderList(items);
+        } catch (error) {
+            console.error('Error loading items:', error);
+        }
+    }
+
+    function renderList(items) {
         const listBody = document.getElementById('listBody');
         listBody.innerHTML = '';
 
@@ -102,75 +225,99 @@
             listBody.appendChild(row);
         });
 
-        // Add event listeners to all delete buttons
-        document.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const itemId = parseInt(this.getAttribute('data-id'));
-                removeItem(itemId);
+        // Add event listeners
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const id = this.getAttribute('data-id');
+                await deleteItem(id);
             });
         });
 
-        // Add event listeners to all edit buttons
-        document.querySelectorAll('.edit-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const itemId = parseInt(this.getAttribute('data-id'));
-                enableEdit(itemId);
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                enableEdit(id);
             });
         });
     }
 
-    function addItem() {
-        const newItemInput = document.getElementById('newItem');
-        const newItemText = newItemInput.value.trim();
+    async function addItem() {
+        const text = document.getElementById('newItem').value.trim();
+        if (!text) return;
 
-        if (newItemText) {
-            items.push({ id: nextId++, text: newItemText });
-            newItemInput.value = '';
-            renderList();
+        try {
+            const response = await fetch('/items', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text }),
+            });
+            
+            if (response.ok) {
+                document.getElementById('newItem').value = '';
+                loadItems();
+            }
+        } catch (error) {
+            console.error('Error adding item:', error);
         }
     }
 
-    function removeItem(id) {
-        items = items.filter(item => item.id !== id);
-        renderList();
+    async function deleteItem(id) {
+        try {
+            const response = await fetch(`/items/${id}`, {
+                method: 'DELETE',
+            });
+            
+            if (response.ok) {
+                loadItems();
+            }
+        } catch (error) {
+            console.error('Error deleting item:', error);
+        }
     }
 
     function enableEdit(id) {
-        const item = items.find(item => item.id === id);
-        if (!item) return;
-
-        const rows = document.querySelectorAll('#listBody tr');
-        rows.forEach(row => {
-            const rowId = parseInt(row.querySelector('.edit-btn').getAttribute('data-id'));
-            if (rowId === id) {
-                const textCell = row.querySelector('.item-text');
-                textCell.innerHTML = `
-                    <input type="text" class="edit-input" value="${item.text}">
-                    <button class="save-btn" data-id="${id}">Save</button>
-                `;
-
-                const saveBtn = textCell.querySelector('.save-btn');
-                saveBtn.addEventListener('click', function() {
-                    const newText = textCell.querySelector('.edit-input').value.trim();
-                    if (newText) {
-                        updateItem(id, newText);
-                    }
-                });
+        const row = document.querySelector(`.edit-btn[data-id="${id}"]`).closest('tr');
+        const textCell = row.querySelector('.item-text');
+        const currentText = textCell.textContent;
+        
+        textCell.innerHTML = `
+            <input type="text" class="edit-input" value="${currentText}">
+            <button class="save-btn" data-id="${id}">Save</button>
+            <button class="cancel-btn">Cancel</button>
+        `;
+        
+        const saveBtn = textCell.querySelector('.save-btn');
+        const cancelBtn = textCell.querySelector('.cancel-btn');
+        
+        saveBtn.addEventListener('click', async function() {
+            const newText = textCell.querySelector('.edit-input').value.trim();
+            if (newText) {
+                await updateItem(id, newText);
             }
         });
+        
+        cancelBtn.addEventListener('click', () => loadItems());
     }
 
-    function updateItem(id, newText) {
-        const item = items.find(item => item.id === id);
-        if (item) {
-            item.text = newText;
-            renderList();
+    async function updateItem(id, newText) {
+        try {
+            const response = await fetch(`/items/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: newText }),
+            });
+            
+            if (response.ok) {
+                loadItems();
+            }
+        } catch (error) {
+            console.error('Error updating item:', error);
         }
     }
-
-    // Initial render
-    document.addEventListener('DOMContentLoaded', renderList);
 </script>
-
 </body>
 </html>
